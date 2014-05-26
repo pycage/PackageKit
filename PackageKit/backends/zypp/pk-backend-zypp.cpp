@@ -42,6 +42,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <vector>
+#include <utime.h>
 
 #include <systemd/sd-journal.h>
 
@@ -55,6 +56,7 @@
 #include <packagekit-glib2/packagekit.h>
 #include <packagekit-glib2/pk-enum.h>
 #include <pk-backend-spawn.h>
+#include <pk-conf.h>
 
 #include <zypp/Digest.h>
 #include <zypp/KeyRing.h>
@@ -182,6 +184,37 @@ gchar * _repoName;
  */
 gboolean _updating_self = FALSE;
 
+// Forward declaration
+static void
+zypp_backend_finished_error (PkBackendJob  *job, PkErrorEnum err_code,
+			     const char *format, ...);
+
+/*
+ */
+static bool
+zypp_is_dist_upgrade_mode ()
+{
+        zypp::ZConfig &zconfig = zypp::ZConfig::instance();
+        Pathname dist_upgrade_cache("/var/cache/pk-zypp-dist-upgrade");
+        return zconfig.repoCachePath() == dist_upgrade_cache;
+}
+
+static void
+zypp_set_dist_upgrade_mode ()
+{
+        // override configuration values in the dist-upgrade case
+        setenv("ZYPP_CONF", "/etc/zypp/pk-zypp-dist-upgrade.conf", 1);
+}
+
+static void
+zypp_force_packagekit_daemon_reload ()
+{
+        // touch the packagekit config file to force a reload
+        PK_ZYPP_LOG ("Forcing a reload");
+        utime (pk_conf_get_filename(), NULL);
+}
+
+
 /*
  * Test if this is pattern and all its dependencies are installed
  */
@@ -296,8 +329,33 @@ zypp_backend_job_thread_wrapper (PkBackendJob *job, GVariant *params,
  **/
 static gboolean
 zypp_backend_job_thread_create (PkBackendJob *job, PkBackendJobThreadFunc func,
-		gpointer user_data, GDestroyNotify destroy_func)
+		gpointer user_data, GDestroyNotify destroy_func,
+                bool requires_dist_upgrade=FALSE)
 {
+        if (requires_dist_upgrade) {
+            // This transaction requires libzypp to be in dist-upgrade mode
+            zypp_set_dist_upgrade_mode ();
+
+            if (!zypp_is_dist_upgrade_mode ()) {
+                PK_ZYPP_LOG ("This command must be run in dist-upgrade mode");
+                zypp_force_packagekit_daemon_reload ();
+                zypp_backend_finished_error (job,
+                                PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
+                                "Need to switch to dist-upgrade mode.");
+                return false;
+            }
+        } else {
+            // This transaction requires libzypp to be in non-dist-upgrade mode
+            if (zypp_is_dist_upgrade_mode ()) {
+                PK_ZYPP_LOG ("This command must not be run in dist-upgrade mode");
+                zypp_force_packagekit_daemon_reload ();
+                zypp_backend_finished_error (job,
+                                PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
+                                "Need to switch away from dist-upgrade mode.");
+                return false;
+            }
+        }
+
 	ZyppBackendThreadWrapperData *data = new ZyppBackendThreadWrapperData(func,
 			user_data, destroy_func);
 	return pk_backend_job_thread_create (job, zypp_backend_job_thread_wrapper,
@@ -857,6 +915,20 @@ ZyppJob::ZyppJob(PkBackendJob *job)
 	: job(job)
 	, cancellable(g_cancellable_new())
 {
+        zypp::ZConfig &zconfig = zypp::ZConfig::instance();
+
+        if (zypp_is_dist_upgrade_mode ()) {
+            PK_ZYPP_LOG ("In dist upgrade mode");
+        } else {
+            PK_ZYPP_LOG ("In normal mode");
+        }
+
+        PK_ZYPP_LOG ("PackageKit config filename: %s", pk_conf_get_filename());
+        PK_ZYPP_LOG ("Got config");
+        PK_ZYPP_LOG ("Repo cache path: %s", zconfig.repoCachePath().asString().c_str());
+        PK_ZYPP_LOG ("Repo metadata path: %s", zconfig.repoMetadataPath().asString().c_str());
+        PK_ZYPP_LOG ("Repo packages path: %s", zconfig.repoPackagesPath().asString().c_str());
+
 	//MIL << "locking zypp" << std::endl;
 	pthread_mutex_lock(&priv->zypp_mutex);
 
@@ -4272,7 +4344,8 @@ pk_backend_upgrade_system (PkBackend *backend, PkBackendJob *job,
 	const gchar *distro_id, PkUpgradeKindEnum upgrade_kind)
 {
 	zypp_backend_job_thread_create (job, backend_upgrade_system_thread,
-			new DistUpgrade(distro_id, upgrade_kind), NULL);
+			new DistUpgrade(distro_id, upgrade_kind), NULL,
+                        true);
 }
 
 /**
