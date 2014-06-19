@@ -189,31 +189,59 @@ static void
 zypp_backend_finished_error (PkBackendJob  *job, PkErrorEnum err_code,
 			     const char *format, ...);
 
-/*
- */
-static bool
-zypp_is_dist_upgrade_mode ()
+static gboolean
+zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
 {
-        zypp::ZConfig &zconfig = zypp::ZConfig::instance();
-        Pathname dist_upgrade_cache("/var/cache/pk-zypp-dist-upgrade");
-        return zconfig.repoCachePath() == dist_upgrade_cache;
+    const char *target_path = "/var/cache/pk-zypp-cache";
+    const char *path = dist_upgrade_mode ? "/var/cache/pk-zypp-dist-upgrade"
+                                         : "/var/cache/zypp";
+
+    PK_ZYPP_LOG ("%s: %s -> %s", __func__, target_path, path);
+
+    char tmp[PATH_MAX];
+    struct stat st;
+
+    if (lstat(target_path, &st) != 0) {
+        PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
+        if (symlink(path, target_path) != 0) {
+            PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
+            return FALSE;
+        }
+        return TRUE;
+    }
+
+    if (readlink(target_path, tmp, sizeof(tmp)) == -1) {
+        PK_ZYPP_LOG ("Cannot read dist upgrade path: %s", strerror(errno));
+        return FALSE;
+    }
+
+    // If target_path is already pointing to path, we're done
+    if (strcmp(path, tmp) == 0) {
+        PK_ZYPP_LOG ("No need to update symlink: %s -> %s", target_path, path);
+        return TRUE;
+    }
+
+    // Need to update the symlink here
+    if (unlink(target_path) != 0) {
+        PK_ZYPP_LOG ("Cannot remove dist upgrade path: %s", strerror(errno));
+        return FALSE;
+    }
+
+    PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
+    if (symlink(path, target_path) != 0) {
+        PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
+        return FALSE;
+    }
+
+    return TRUE;
 }
 
 static void
-zypp_set_dist_upgrade_mode ()
+zypp_set_custom_config_file ()
 {
-        // override configuration values in the dist-upgrade case
-        setenv("ZYPP_CONF", "/etc/zypp/pk-zypp-dist-upgrade.conf", 1);
+        // override configuration values to control cache directory
+        setenv("ZYPP_CONF", "/etc/zypp/pk-zypp-cache.conf", 1);
 }
-
-static void
-zypp_force_packagekit_daemon_reload ()
-{
-        // touch the packagekit config file to force a reload
-        PK_ZYPP_LOG ("Forcing a reload");
-        utime (pk_conf_get_filename(), NULL);
-}
-
 
 /*
  * Test if this is pattern and all its dependencies are installed
@@ -332,26 +360,25 @@ zypp_backend_job_thread_create (PkBackendJob *job, PkBackendJobThreadFunc func,
 		gpointer user_data, GDestroyNotify destroy_func,
                 bool requires_dist_upgrade=FALSE)
 {
+        // Use custom configuration for libzypp
+        zypp_set_custom_config_file ();
+
         if (requires_dist_upgrade) {
             // This transaction requires libzypp to be in dist-upgrade mode
-            zypp_set_dist_upgrade_mode ();
-
-            if (!zypp_is_dist_upgrade_mode ()) {
-                PK_ZYPP_LOG ("This command must be run in dist-upgrade mode");
-                zypp_force_packagekit_daemon_reload ();
+            if (!zypp_set_dist_upgrade_mode (TRUE)) {
+                PK_ZYPP_LOG ("Could not configure dist-upgrade mode");
                 zypp_backend_finished_error (job,
                                 PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
-                                "Need to switch to dist-upgrade mode.");
+                                "Could not configure dist-upgrade mode.");
                 return false;
             }
         } else {
             // This transaction requires libzypp to be in non-dist-upgrade mode
-            if (zypp_is_dist_upgrade_mode ()) {
-                PK_ZYPP_LOG ("This command must not be run in dist-upgrade mode");
-                zypp_force_packagekit_daemon_reload ();
+            if (!zypp_set_dist_upgrade_mode (FALSE)) {
+                PK_ZYPP_LOG ("Could not configure normal mode");
                 zypp_backend_finished_error (job,
                                 PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
-                                "Need to switch away from dist-upgrade mode.");
+                                "Could not configure normal mode.");
                 return false;
             }
         }
@@ -916,12 +943,6 @@ ZyppJob::ZyppJob(PkBackendJob *job)
 	, cancellable(g_cancellable_new())
 {
         zypp::ZConfig &zconfig = zypp::ZConfig::instance();
-
-        if (zypp_is_dist_upgrade_mode ()) {
-            PK_ZYPP_LOG ("In dist upgrade mode");
-        } else {
-            PK_ZYPP_LOG ("In normal mode");
-        }
 
         PK_ZYPP_LOG ("PackageKit config filename: %s", pk_conf_get_filename());
         PK_ZYPP_LOG ("Got config");
