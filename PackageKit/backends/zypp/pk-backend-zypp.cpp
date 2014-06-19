@@ -4312,7 +4312,9 @@ backend_upgrade_system_thread (PkBackendJob *job, GVariant *params, gpointer use
 	try
 	{
 		pk_backend_job_set_status (job, PK_STATUS_ENUM_REFRESH_CACHE);
-		if (!zypp_refresh_cache (job, zypp, FALSE)) {
+                // Setting force to TRUE, as we want to force a cache refresh
+                // before installing upgrades, now that we use a separate cache
+		if (!zypp_refresh_cache (job, zypp, TRUE)) {
 			zypp_backend_finished_error (job,
 					PK_ERROR_ENUM_REPO_NOT_AVAILABLE,
 					"Cannot refresh package cache.");
