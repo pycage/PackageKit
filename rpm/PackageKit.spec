@@ -321,7 +321,7 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %{_libdir}/packagekit-backend/libpk_backend_zypp.so
 %{_libexecdir}/pk-rpm-db-clean
 %{_unitdir}/rpm-db-clean.service
-%config %{_sysconfdir}/zypp/pk-zypp-dist-upgrade.conf
+%config %{_sysconfdir}/zypp/pk-zypp-cache.conf
 
 %files glib
 %defattr(-,root,root,-)
