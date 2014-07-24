@@ -4312,11 +4312,11 @@ backend_upgrade_system_thread (PkBackendJob *job, GVariant *params, gpointer use
 	try
 	{
 		pk_backend_job_set_status (job, PK_STATUS_ENUM_REFRESH_CACHE);
-                // Setting force to TRUE, as we want to force a cache refresh
-                // before installing upgrades, now that we use a separate cache,
-                // but we don't want to refresh when doing a complete upgrade.
-                // (only in minimal aka download-only mode)
-                gboolean do_refresh = (parameters->upgrade_kind == PK_UPGRADE_KIND_ENUM_MINIMAL);
+		// Setting force to TRUE, as we want to force a cache refresh
+		// before installing upgrades, now that we use a separate cache,
+		// but we don't want to refresh when doing a complete upgrade.
+		// (only in minimal aka download-only mode)
+		gboolean do_refresh = (parameters->upgrade_kind == PK_UPGRADE_KIND_ENUM_MINIMAL);
 		if (!zypp_refresh_cache (job, zypp, do_refresh)) {
 			zypp_backend_finished_error (job,
 					PK_ERROR_ENUM_REPO_NOT_AVAILABLE,
