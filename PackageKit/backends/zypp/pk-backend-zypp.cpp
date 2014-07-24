@@ -192,63 +192,63 @@ zypp_backend_finished_error (PkBackendJob  *job, PkErrorEnum err_code,
 static gboolean
 zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
 {
-    const char *target_path = "/var/cache/pk-zypp-cache";
-    const char *path = dist_upgrade_mode ? "/var/cache/pk-zypp-dist-upgrade"
-                                         : "/var/cache/zypp";
+	const char *target_path = "/var/cache/pk-zypp-cache";
+	const char *path = dist_upgrade_mode ? "/var/cache/pk-zypp-dist-upgrade"
+		: "/var/cache/zypp";
 
-    PK_ZYPP_LOG ("%s: %s -> %s", __func__, target_path, path);
+	PK_ZYPP_LOG ("%s: %s -> %s", __func__, target_path, path);
 
-    char tmp[PATH_MAX];
-    struct stat st;
+	char tmp[PATH_MAX];
+	struct stat st;
 
-    if (stat(path, &st) != 0) {
-        PK_ZYPP_LOG ("Creating cache directory: %s", path);
-        if (mkdir(path, 0755) != 0) {
-            PK_ZYPP_LOG ("Cannot create directory: %s", strerror(errno));
-            return FALSE;
-        }
-    }
+	if (stat(path, &st) != 0) {
+		PK_ZYPP_LOG ("Creating cache directory: %s", path);
+		if (mkdir(path, 0755) != 0) {
+			PK_ZYPP_LOG ("Cannot create directory: %s", strerror(errno));
+			return FALSE;
+		}
+	}
 
-    if (lstat(target_path, &st) != 0) {
-        PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
-        if (symlink(path, target_path) != 0) {
-            PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
-            return FALSE;
-        }
-        return TRUE;
-    }
+	if (lstat(target_path, &st) != 0) {
+		PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
+		if (symlink(path, target_path) != 0) {
+			PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
+			return FALSE;
+		}
+		return TRUE;
+	}
 
-    if (readlink(target_path, tmp, sizeof(tmp)) == -1) {
-        PK_ZYPP_LOG ("Cannot read dist upgrade path: %s", strerror(errno));
-        return FALSE;
-    }
+	if (readlink(target_path, tmp, sizeof(tmp)) == -1) {
+		PK_ZYPP_LOG ("Cannot read dist upgrade path: %s", strerror(errno));
+		return FALSE;
+	}
 
-    // If target_path is already pointing to path, we're done
-    if (strcmp(path, tmp) == 0) {
-        PK_ZYPP_LOG ("No need to update symlink: %s -> %s", target_path, path);
-        return TRUE;
-    }
+	// If target_path is already pointing to path, we're done
+	if (strcmp(path, tmp) == 0) {
+		PK_ZYPP_LOG ("No need to update symlink: %s -> %s", target_path, path);
+		return TRUE;
+	}
 
-    // Need to update the symlink here
-    if (unlink(target_path) != 0) {
-        PK_ZYPP_LOG ("Cannot remove dist upgrade path: %s", strerror(errno));
-        return FALSE;
-    }
+	// Need to update the symlink here
+	if (unlink(target_path) != 0) {
+		PK_ZYPP_LOG ("Cannot remove dist upgrade path: %s", strerror(errno));
+		return FALSE;
+	}
 
-    PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
-    if (symlink(path, target_path) != 0) {
-        PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
-        return FALSE;
-    }
+	PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
+	if (symlink(path, target_path) != 0) {
+		PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
+		return FALSE;
+	}
 
-    return TRUE;
+	return TRUE;
 }
 
 static void
 zypp_set_custom_config_file ()
 {
-        // override configuration values to control cache directory
-        setenv("ZYPP_CONF", "/etc/zypp/pk-zypp-cache.conf", 1);
+	// override configuration values to control cache directory
+	setenv("ZYPP_CONF", "/etc/zypp/pk-zypp-cache.conf", 1);
 }
 
 /*
@@ -366,30 +366,30 @@ zypp_backend_job_thread_wrapper (PkBackendJob *job, GVariant *params,
 static gboolean
 zypp_backend_job_thread_create (PkBackendJob *job, PkBackendJobThreadFunc func,
 		gpointer user_data, GDestroyNotify destroy_func,
-                bool requires_dist_upgrade=FALSE)
+		bool requires_dist_upgrade=FALSE)
 {
-        // Use custom configuration for libzypp
-        zypp_set_custom_config_file ();
+	// Use custom configuration for libzypp
+	zypp_set_custom_config_file ();
 
-        if (requires_dist_upgrade) {
-            // This transaction requires libzypp to be in dist-upgrade mode
-            if (!zypp_set_dist_upgrade_mode (TRUE)) {
-                PK_ZYPP_LOG ("Could not configure dist-upgrade mode");
-                zypp_backend_finished_error (job,
-                                PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
-                                "Could not configure dist-upgrade mode.");
-                return false;
-            }
-        } else {
-            // This transaction requires libzypp to be in non-dist-upgrade mode
-            if (!zypp_set_dist_upgrade_mode (FALSE)) {
-                PK_ZYPP_LOG ("Could not configure normal mode");
-                zypp_backend_finished_error (job,
-                                PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
-                                "Could not configure normal mode.");
-                return false;
-            }
-        }
+	if (requires_dist_upgrade) {
+		// This transaction requires libzypp to be in dist-upgrade mode
+		if (!zypp_set_dist_upgrade_mode (TRUE)) {
+			PK_ZYPP_LOG ("Could not configure dist-upgrade mode");
+			zypp_backend_finished_error (job,
+					PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
+					"Could not configure dist-upgrade mode.");
+			return false;
+		}
+	} else {
+		// This transaction requires libzypp to be in non-dist-upgrade mode
+		if (!zypp_set_dist_upgrade_mode (FALSE)) {
+			PK_ZYPP_LOG ("Could not configure normal mode");
+			zypp_backend_finished_error (job,
+					PK_ERROR_ENUM_NO_DISTRO_UPGRADE_DATA,
+					"Could not configure normal mode.");
+			return false;
+		}
+	}
 
 	ZyppBackendThreadWrapperData *data = new ZyppBackendThreadWrapperData(func,
 			user_data, destroy_func);
@@ -950,13 +950,13 @@ ZyppJob::ZyppJob(PkBackendJob *job)
 	: job(job)
 	, cancellable(g_cancellable_new())
 {
-        zypp::ZConfig &zconfig = zypp::ZConfig::instance();
+	zypp::ZConfig &zconfig = zypp::ZConfig::instance();
 
-        PK_ZYPP_LOG ("PackageKit config filename: %s", pk_conf_get_filename());
-        PK_ZYPP_LOG ("Got config");
-        PK_ZYPP_LOG ("Repo cache path: %s", zconfig.repoCachePath().asString().c_str());
-        PK_ZYPP_LOG ("Repo metadata path: %s", zconfig.repoMetadataPath().asString().c_str());
-        PK_ZYPP_LOG ("Repo packages path: %s", zconfig.repoPackagesPath().asString().c_str());
+	PK_ZYPP_LOG ("PackageKit config filename: %s", pk_conf_get_filename());
+	PK_ZYPP_LOG ("Got config");
+	PK_ZYPP_LOG ("Repo cache path: %s", zconfig.repoCachePath().asString().c_str());
+	PK_ZYPP_LOG ("Repo metadata path: %s", zconfig.repoMetadataPath().asString().c_str());
+	PK_ZYPP_LOG ("Repo packages path: %s", zconfig.repoPackagesPath().asString().c_str());
 
 	//MIL << "locking zypp" << std::endl;
 	pthread_mutex_lock(&priv->zypp_mutex);
@@ -4379,7 +4379,7 @@ pk_backend_upgrade_system (PkBackend *backend, PkBackendJob *job,
 {
 	zypp_backend_job_thread_create (job, backend_upgrade_system_thread,
 			new DistUpgrade(distro_id, upgrade_kind), NULL,
-                        true);
+			true);
 }
 
 /**
