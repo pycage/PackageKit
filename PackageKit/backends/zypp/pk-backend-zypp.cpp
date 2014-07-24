@@ -201,6 +201,14 @@ zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
     char tmp[PATH_MAX];
     struct stat st;
 
+    if (stat(path, &st) != 0) {
+        PK_ZYPP_LOG ("Creating cache directory: %s", path);
+        if (mkdir(path, 0755) != 0) {
+            PK_ZYPP_LOG ("Cannot create directory: %s", strerror(errno));
+            return FALSE;
+        }
+    }
+
     if (lstat(target_path, &st) != 0) {
         PK_ZYPP_LOG ("Creating symlink: %s -> %s", target_path, path);
         if (symlink(path, target_path) != 0) {
