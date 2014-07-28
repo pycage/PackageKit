@@ -1017,13 +1017,43 @@ ZYpp::Ptr
 ZyppJob::get_zypp()
 {
 	static gboolean initialized = FALSE;
+	static std::string currentRoot = "";
 	ZYpp::Ptr zypp = NULL;
+
+	// Determine the real root path of the cache directory (possibly
+	// symlinked) in order to be able to check if we need to reinit
+	// the target (when the cache path changed)
+	zypp::ZConfig &zconfig = zypp::ZConfig::instance();
+	char *cachePath = strdup(zconfig.repoCachePath().asString().c_str());
+	char tmp[PATH_MAX];
+
+	if (readlink(cachePath, tmp, sizeof(tmp)) == -1) {
+		PK_ZYPP_LOG ("Cannot read dist upgrade path: %s, falling back to %s", strerror(errno), cachePath);
+		strncpy(tmp, cachePath, PATH_MAX);
+	}
+
+	std::string targetRoot = tmp;
 
 	try {
 		zypp = ZYppFactory::instance ().getZYpp ();
 
 		/* TODO: we need to lifecycle manage this, detect changes
 		   in the requested 'root' etc. */
+		if (targetRoot != currentRoot) {
+			if (initialized) {
+				PK_ZYPP_LOG ("Switching target with hot pool: %s -> %s",
+						currentRoot.c_str(), targetRoot.c_str());
+				zypp->finishTarget ();
+				zypp->pool().resolver().reset();
+				currentRoot = targetRoot;
+				initialized = false;
+			} else {
+				PK_ZYPP_LOG ("Setting target on init: %s",
+						targetRoot.c_str());
+				currentRoot = targetRoot;
+			}
+		}
+
 		if (!initialized) {
 			try {
 				filesystem::Pathname pathname("/");
