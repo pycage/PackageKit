@@ -4337,6 +4337,7 @@ backend_upgrade_system_thread (PkBackendJob *job, GVariant *params, gpointer use
 			//MIL << "Downloading and installing upgrades" << std::endl;
 			break;
 	}
+	gboolean do_refresh = (parameters->upgrade_kind == PK_UPGRADE_KIND_ENUM_MINIMAL);
 	delete parameters;
 
 	ZyppJob zjob(job);
@@ -4354,7 +4355,6 @@ backend_upgrade_system_thread (PkBackendJob *job, GVariant *params, gpointer use
 		// before installing upgrades, now that we use a separate cache,
 		// but we don't want to refresh when doing a complete upgrade.
 		// (only in minimal aka download-only mode)
-		gboolean do_refresh = (parameters->upgrade_kind == PK_UPGRADE_KIND_ENUM_MINIMAL);
 		if (!zypp_refresh_cache (job, zypp, do_refresh)) {
 			zypp_backend_finished_error (job,
 					PK_ERROR_ENUM_REPO_NOT_AVAILABLE,

@@ -2,10 +2,10 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* default backend prefix */
-#define DEFAULT_BACKEND "yum"
+#define DEFAULT_BACKEND "zypp"
 
 /* Build test code */
-#define EGG_BUILD_TESTS 1
+/* #undef EGG_BUILD_TESTS */
 
 /* always defined to indicate that i18n is enabled */
 #define ENABLE_NLS 1
@@ -86,7 +86,7 @@
 #define HAVE_UNISTD_H 1
 
 /* If Zif support should be enabled */
-#define HAVE_ZIF 1
+/* #undef HAVE_ZIF */
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
@@ -120,13 +120,16 @@
 #define PACKAGE_VERSION "0.8.9"
 
 /* define if Connection Manager is installed */
-/* #undef PK_BUILD_CONNMAN */
+#define PK_BUILD_CONNMAN 1
 
 /* Build local code */
-#define PK_BUILD_LOCAL 1
+/* #undef PK_BUILD_LOCAL */
+
+/* Build mce code */
+#define PK_BUILD_MCE 1
 
 /* define if NetworkManager is installed */
-#define PK_BUILD_NETWORKMANAGER 1
+/* #undef PK_BUILD_NETWORKMANAGER */
 
 /* Build systemd code */
 #define PK_BUILD_SYSTEMD 1
@@ -147,7 +150,7 @@
 #define VERSION "0.8.9"
 
 /* define if libzypp returns package size in bytes */
-/* #undef ZYPP_RETURN_BYTES */
+#define ZYPP_RETURN_BYTES 1
 
 /* default security framework */
 #define security_framework "polkit"
