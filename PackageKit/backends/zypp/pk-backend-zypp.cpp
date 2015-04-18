@@ -189,6 +189,43 @@ static void
 zypp_backend_finished_error (PkBackendJob  *job, PkErrorEnum err_code,
 			     const char *format, ...);
 
+static void
+zypp_reset_pool ()
+{
+    RepoManager manager;
+
+    // iterate over all known repositories and reload them from the cache on disk
+    for (RepoManager::RepoConstIterator it = manager.repoBegin(); it != manager.repoEnd(); ++it) {
+        RepoInfo repoInfo (*it);
+        PK_ZYPP_LOG("Reloading repository %s from disk cache", repoInfo.alias().c_str());
+        Repository repo = sat::Pool::instance().reposFind(repoInfo.alias ());
+        // wipe all data we currently hold about that repository in the pool,
+        // because loadFromCache() will just add data
+        repo.eraseFromPool();
+
+        if (manager.isCached(repoInfo)) {
+            try {
+                manager.loadFromCache(repoInfo);
+            } catch (const Exception &ex) {
+                PK_ZYPP_LOG("Failed to reload repository %s: %s",
+                            repoInfo.alias().c_str(),
+                            ex.asUserString().c_str());
+            }
+        }
+    }
+
+    // reset the state of the resolver
+    ZYpp::Ptr zypp = NULL;
+    zypp = ZYppFactory::instance ().getZYpp ();
+    if (zypp) {
+        PK_ZYPP_LOG("Resetting resolver");
+        zypp->pool().resolver().reset();
+        // the upgrade mode is not reset when resetting the solver and must be
+        // reset explicitly
+        zypp->pool().resolver().setUpgradeMode(FALSE);
+    }
+}
+
 static gboolean
 zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
 {
@@ -240,6 +277,10 @@ zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
 		PK_ZYPP_LOG ("Cannot create symlink: %s", strerror(errno));
 		return FALSE;
 	}
+
+    // if the cache path was swapped, the pool holds wrong information now and
+    // has to be reset
+    zypp_reset_pool();
 
 	return TRUE;
 }
