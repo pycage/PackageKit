@@ -255,10 +255,13 @@ zypp_set_dist_upgrade_mode (gboolean dist_upgrade_mode)
 		return TRUE;
 	}
 
-	if (readlink(target_path, tmp, sizeof(tmp)) == -1) {
+    ssize_t tmp_len = readlink(target_path, tmp, sizeof(tmp));
+    if (tmp_len == -1) {
 		PK_ZYPP_LOG ("Cannot read dist upgrade path: %s", strerror(errno));
 		return FALSE;
-	}
+    } else {
+        tmp[tmp_len] = 0x0;
+    }
 
 	// If target_path is already pointing to path, we're done
 	if (strcmp(path, tmp) == 0) {
@@ -1068,12 +1071,15 @@ ZyppJob::get_zypp()
 	char *cachePath = strdup(zconfig.repoCachePath().asString().c_str());
 	char tmp[PATH_MAX];
 
-	if (readlink(cachePath, tmp, sizeof(tmp)) == -1) {
+    std::string targetRoot;
+    ssize_t tmp_len = readlink(cachePath, tmp, sizeof(tmp));
+    if (tmp_len == -1) {
 		PK_ZYPP_LOG ("Cannot read dist upgrade path: %s, falling back to %s", strerror(errno), cachePath);
 		strncpy(tmp, cachePath, PATH_MAX);
-	}
-
-	std::string targetRoot = tmp;
+        targetRoot.assign(cachePath);
+    } else {
+        targetRoot.assign(tmp, tmp_len);
+    }
 
 	try {
 		zypp = ZYppFactory::instance ().getZYpp ();
