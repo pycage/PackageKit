@@ -1,0 +1,5 @@
+pk-zypp-nemo-remove-old-cache
+
+This Nemo-specific oneshot script removes old zypp cache directories after they
+have moved elsewhere.
+

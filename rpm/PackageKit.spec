@@ -63,6 +63,8 @@ cross-architecture API.
 %package zypp
 Summary: PackageKit zypp backend
 Group: System/Libraries
+%{_oneshot_requires_post}
+Requires: oneshot
 Requires: libzypp >= 5.20.0
 Requires: %{name} = %{version}-%{release}
 
@@ -275,6 +277,7 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 
 %post zypp
 /bin/systemctl preset rpm-db-clean.service >/dev/null 2>&1 || :
+%{_bindir}/add-oneshot pk-zypp-nemo-remove-old-cache
 
 %preun zypp
 %systemd_preun rpm-db-clean.service
@@ -331,6 +334,7 @@ update-mime-database %{_datadir}/mime &> /dev/null || :
 %{_unitdir}/rpm-db-clean.service
 %config %{_sysconfdir}/zypp/pk-zypp-cache.conf
 %dir /home/.pk-zypp-dist-upgrade-cache
+%attr(0755, -, -) %{_oneshotdir}/*
 
 %files glib
 %defattr(-,root,root,-)
