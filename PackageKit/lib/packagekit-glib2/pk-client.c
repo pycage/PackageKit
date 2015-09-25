@@ -291,6 +291,11 @@ pk_client_real_path (const gchar *path)
 	if (path == NULL)
 		return NULL;
 
+	/* pass nemo pseudo packages */
+	if (g_str_has_prefix(path, ":nemo::")) {
+		return g_strdup(path);
+	}
+
 #ifndef __FreeBSD__
 	/* ITS4: ignore, glibc allocates us a buffer to try and fix some brain damage */
 	temp = realpath (path, NULL);
