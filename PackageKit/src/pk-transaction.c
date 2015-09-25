@@ -4234,6 +4234,10 @@ pk_transaction_install_files (PkTransaction *transaction,
 	length = g_strv_length (full_paths);
 
 	for (i = 0; i < length; i++) {
+		/* let nemo pseudo packages pass through */
+		if (g_str_has_prefix(full_paths[i], ":nemo::"))
+			continue;
+
 		/* exists */
 		ret = g_file_test (full_paths[i], G_FILE_TEST_EXISTS);
 		if (!ret) {

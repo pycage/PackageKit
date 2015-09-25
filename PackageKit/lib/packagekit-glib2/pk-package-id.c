@@ -85,6 +85,10 @@ pk_package_id_check (const gchar *package_id)
 	if (!ret)
 		return FALSE;
 
+	/* nemo pseudo package */
+	if (g_str_has_prefix(package_id, ":nemo::"))
+		return TRUE;
+
 	/* correct number of sections */
 	sections = pk_package_id_split (package_id);
 	if (sections == NULL)
