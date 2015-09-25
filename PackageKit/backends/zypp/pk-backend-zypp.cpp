@@ -3005,7 +3005,7 @@ backend_install_files_thread (PkBackendJob *job, GVariant *params, gpointer user
 		if (g_str_has_prefix(full_paths[i], ":nemo::install-prefix:")) {
 			full_paths[i] += strlen(":nemo::install-prefix:");
 			installPrefix = std::string(full_paths[i]);
-			PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix);
+			PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
 			continue;
 		}
 
@@ -3249,11 +3249,11 @@ backend_install_packages_thread (PkBackendJob *job, GVariant *params, gpointer u
 			if (g_str_has_prefix(package_ids[i], ":nemo::install-prefix:")) {
 				package_ids[i] += strlen(":nemo::install-prefix:");
 				installPrefix = std::string(package_ids[i]);
-				PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix);
+				PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
 				continue;
 			}
 
-			sat::Solvable solvable = zypp_get_package_by_id (package_id);
+			sat::Solvable solvable = zypp_get_package_by_id (package_ids[i]);
 			
 			to_install++;
 			PoolItem item(solvable);
