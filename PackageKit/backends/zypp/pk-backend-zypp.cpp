@@ -3002,10 +3002,13 @@ backend_install_files_thread (PkBackendJob *job, GVariant *params, gpointer user
 	for (guint i = 0; full_paths[i]; i++) {
 
 		// check for special pseudo packages
-		if (g_str_has_prefix(full_paths[i], ":nemo::install-prefix:")) {
-			full_paths[i] += strlen(":nemo::install-prefix:");
-			installPrefix = std::string(full_paths[i]);
-			PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
+		if (g_str_has_prefix(full_paths[i], ":nemo::")) {
+			full_paths[i] += strlen(":nemo::");
+			if (g_str_has_prefix(full_paths[i], "relocate:")) {
+				full_paths[i] += strlen("relocate:");
+				installPrefix = std::string(full_paths[i]);
+				PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
+			}
 			continue;
 		}
 
@@ -3246,10 +3249,13 @@ backend_install_packages_thread (PkBackendJob *job, GVariant *params, gpointer u
 			//MIL << package_ids[i] << endl;
 
 			// check for special pseudo packages
-			if (g_str_has_prefix(package_ids[i], ":nemo::install-prefix:")) {
-				package_ids[i] += strlen(":nemo::install-prefix:");
-				installPrefix = std::string(package_ids[i]);
-				PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
+                        if (g_str_has_prefix(package_ids[i], ":nemo::")) {
+				package_ids[i] += strlen(":nemo::");
+				if (g_str_has_prefix(package_ids[i], "relocate:")) {
+					package_ids[i] += strlen("relocate:");
+					installPrefix = std::string(package_ids[i]);
+					PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix.c_str());
+				}
 				continue;
 			}
 
