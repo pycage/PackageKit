@@ -1903,7 +1903,7 @@ zypp_backend_pool_item_notify (PkBackendJob  *job,
   * simulate, or perform changes in pool to the system
   */
 static gboolean
-zypp_perform_execution (PkBackendJob *job, ZYpp::Ptr zypp, PerformType type, gboolean force, PkBitfield transaction_flags)
+zypp_perform_execution (PkBackendJob *job, ZYpp::Ptr zypp, PerformType type, gboolean force, PkBitfield transaction_flags, const std::string& installPrefix = std::string())
 {
 	//MIL << force << " " << pk_transaction_flag_bitfield_to_string(transaction_flags) << endl;
 	gboolean ret = FALSE;
@@ -2038,6 +2038,11 @@ zypp_perform_execution (PkBackendJob *job, ZYpp::Ptr zypp, PerformType type, gbo
 		policy.syncPoolAfterCommit (true);
 		if (!pk_bitfield_contain (transaction_flags, PK_TRANSACTION_FLAG_ENUM_ONLY_TRUSTED))
 			policy.rpmNoSignature(true);
+
+		if (!installPrefix.empty()) {
+			PK_ZYPP_LOG("Relocating packages to: %s", installPrefix.c_str());
+			policy.installPrefix(installPrefix);
+		}
 
 		int64_t total_download_bytes = 0;
 		int64_t total_install_bytes = 0;
@@ -2992,7 +2997,17 @@ backend_install_files_thread (PkBackendJob *job, GVariant *params, gpointer user
 		return;
 	}
 
+	std::string installPrefix;
+
 	for (guint i = 0; full_paths[i]; i++) {
+
+		// check for special pseudo packages
+		if (g_str_has_prefix(full_paths[i], ":nemo::install-prefix:")) {
+			full_paths[i] += strlen(":nemo::install-prefix:");
+			installPrefix = std::string(full_paths[i]);
+			PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix);
+			continue;
+		}
 
 		// check if file is really a rpm
 		Pathname rpmPath (full_paths[i]);
@@ -3070,7 +3085,7 @@ backend_install_files_thread (PkBackendJob *job, GVariant *params, gpointer user
 		PoolItem(*it).status().setToBeInstalled(ResStatus::USER);
 	}
 
-	if (!zypp_perform_execution (job, zypp, INSTALL, FALSE, transaction_flags)) {
+	if (!zypp_perform_execution (job, zypp, INSTALL, FALSE, transaction_flags, installPrefix)) {
 		pk_backend_job_error_code (job, PK_ERROR_ENUM_LOCAL_INSTALL_FAILED, "Could not install the rpm-file.");
 	}
 
@@ -3224,10 +3239,21 @@ backend_install_packages_thread (PkBackendJob *job, GVariant *params, gpointer u
 		pk_backend_job_set_percentage (job, 10);
 		vector<PoolItem> items;
 
+		std::string installPrefix;
+
 		guint to_install = 0;
 		for (guint i = 0; package_ids[i]; i++) {
 			//MIL << package_ids[i] << endl;
-			sat::Solvable solvable = zypp_get_package_by_id (package_ids[i]);
+
+			// check for special pseudo packages
+			if (g_str_has_prefix(package_ids[i], ":nemo::install-prefix:")) {
+				package_ids[i] += strlen(":nemo::install-prefix:");
+				installPrefix = std::string(package_ids[i]);
+				PK_ZYPP_LOG("Discovered relocation pseudo package: %s", installPrefix);
+				continue;
+			}
+
+			sat::Solvable solvable = zypp_get_package_by_id (package_id);
 			
 			to_install++;
 			PoolItem item(solvable);
@@ -3248,7 +3274,7 @@ backend_install_packages_thread (PkBackendJob *job, GVariant *params, gpointer u
 
 		// Todo: ideally we should call pk_backend_job_package (...
 		// PK_INFO_ENUM_DOWNLOADING | INSTALLING) for each package.
-		if (!zypp_perform_execution (job, zypp, INSTALL, FALSE, transaction_flags)) {
+		if (!zypp_perform_execution (job, zypp, INSTALL, FALSE, transaction_flags, installPrefix)) {
 			// reset the status of the marked packages
 			for (vector<PoolItem>::iterator it = items.begin (); it != items.end (); ++it) {
 				it->statusReset ();
